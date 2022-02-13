@@ -73,9 +73,9 @@ void SetCustomColor(const int deviceId) {
         for (int j = 0; j < 22; j++) {
             if (i == 0 && j == 21) {
                 // Sound
-                buffer[index++] = 0xFF;
-                buffer[index++] = 0xFF;
-                buffer[index++] = 0x0F;
+                buffer[index++] = 0x2E;
+                buffer[index++] = 0xB0;
+                buffer[index++] = 0x86;
             } else if (i == 0 && j >= 18 && j <= 20) {
                 // Media Control
                 buffer[index++] = 0x0F;
@@ -83,9 +83,9 @@ void SetCustomColor(const int deviceId) {
                 buffer[index++] = 0x0F;
             } else if(i == 1 && j >= 2 && j <= 11) {
                 // Numbers
-                buffer[index++] = 0xAF;
-                buffer[index++] = 0xAF;
-                buffer[index++] = 0x00;
+                buffer[index++] = 0x3D;
+                buffer[index++] = 0xB2;
+                buffer[index++] = 0xFF;
             } else if ((i == 2 && j == 3) || (i == 3 && j >= 2 && j <= 4)) {
                 // WSAD
                 buffer[index++] = 0x1F;
@@ -98,13 +98,14 @@ void SetCustomColor(const int deviceId) {
                 buffer[index++] = 0x1F;
             } else if((i == 1 && j == 14) || (i == 2 && j == 15)) {
                 // Delete and Backspace
-                buffer[index++] = 0xFF;
-                buffer[index++] = 0x06;
-                buffer[index++] = 0x06;
+                buffer[index++] = 0xE6;
+                buffer[index++] = 0x09;
+                buffer[index++] = 0x65;
             } else if(i == 3 && j == 14) {
-                buffer[index++] = 0x00;
-                buffer[index++] = 0x6F;
-                buffer[index++] = 0xCF;
+                // Enter
+                buffer[index++] = 0x1F;
+                buffer[index++] = 0xFF;
+                buffer[index++] = 0x1F;
             } else if(i == 5 && j == 2) {
                 // Windows
                 buffer[index++] = 0x00;
@@ -112,9 +113,9 @@ void SetCustomColor(const int deviceId) {
                 buffer[index++] = 0x2F;
             } else {
                 // Other Keys
-                buffer[index++] = 0x2F;
-                buffer[index++] = 0x2F;
-                buffer[index++] = 0x1F;
+                buffer[index++] = 0x4F;
+                buffer[index++] = 0x4F;
+                buffer[index++] = 0x4F;
             }
         }
     }
