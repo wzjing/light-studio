@@ -11,6 +11,6 @@ include_directories(driver/include)
 add_subdirectory(util)
 include_directories(util/include)
 
-add_executable(Lightning-driver main.cpp util/include/log.h util/src/util.cpp)
+add_executable(Lightning-driver main.cpp util/include/log.hpp util/src/log.cpp)
 
 target_link_libraries(Lightning-driver driver)

@@ -8,7 +8,7 @@ extern "C"
 #include "razerheadphone_driver.h"
 }
 
-#include <log.h>
+#include <log.hpp>
 
 RazerDevices devices;
 
@@ -21,6 +21,7 @@ void initDevices() {
         RazerDevice device = devices.devices[i];
         debug("Razer device :: id = %d, product id = %d", device.internalDeviceId, device.productId);
     }
+    debug("get all device done.");
 }
 
 RazerDevice getRazerDeviceFor(const int deviceId) {
@@ -31,7 +32,7 @@ RazerDevice getRazerDeviceFor(const int deviceId) {
             return devices.devices[counter];
         }
     }
-    error("getRazerDeviceFor :: error, unable to get device");
+    error("getRazerDeviceFor :: error, unable to get device for 0x%04x", deviceId);
     return {};
 }
 
@@ -71,50 +72,51 @@ void SetCustomColor(const int deviceId) {
         buffer[index++] = 0;
         buffer[index++] = 21;
         for (int j = 0; j < 22; j++) {
-            if (i == 0 && j == 21) {
+            if (i == 0 && (j == 6 || j == 9)) {
                 // Sound
-                buffer[index++] = 0xFF;
-                buffer[index++] = 0xFF;
+                buffer[index++] = 0xAF;
+                buffer[index++] = 0x00;
                 buffer[index++] = 0x0F;
             } else if (i == 0 && j >= 18 && j <= 20) {
                 // Media Control
                 buffer[index++] = 0x0F;
                 buffer[index++] = 0xFF;
                 buffer[index++] = 0x0F;
-            } else if(i == 1 && j >= 2 && j <= 11) {
+            } else if(i == 1 && j >= 1 && j <= 10) {
                 // Numbers
-                buffer[index++] = 0xAF;
-                buffer[index++] = 0xAF;
+                buffer[index++] = 0xFF;
+                buffer[index++] = 0xFF;
                 buffer[index++] = 0x00;
-            } else if ((i == 2 && j == 3) || (i == 3 && j >= 2 && j <= 4)) {
+            } else if ((i == 2 && j == 2) || (i == 3 && j >= 1 && j <= 3)) {
                 // WSAD
                 buffer[index++] = 0x1F;
                 buffer[index++] = 0xFF;
                 buffer[index++] = 0x1F;
-            } else if ((i == 4 && j == 16) || (i == 5 && j >= 15 && j <= 17)) {
+            } else if ((i == 4 && j == 15) || (i == 5 && j >= 14 && j <= 16)) {
                 // UP\DOWN\LEFT\RIGHT
                 buffer[index++] = 0xFF;
                 buffer[index++] = 0x1F;
                 buffer[index++] = 0x1F;
-            } else if((i == 1 && j == 14) || (i == 2 && j == 15)) {
+            } else if((i == 1 && j == 13) || (i == 2 && j == 14)) {
                 // Delete and Backspace
                 buffer[index++] = 0xFF;
-                buffer[index++] = 0x06;
-                buffer[index++] = 0x06;
-            } else if(i == 3 && j == 14) {
                 buffer[index++] = 0x00;
-                buffer[index++] = 0x6F;
-                buffer[index++] = 0xCF;
-            } else if(i == 5 && j == 2) {
+                buffer[index++] = 0x00;
+            } else if(i == 3 && j == 13) {
+                // Enter
+                buffer[index++] = 0x00;
+                buffer[index++] = 0xFF;
+                buffer[index++] = 0x0F;
+            } else if(i == 5 && j == 1) {
                 // Windows
                 buffer[index++] = 0x00;
                 buffer[index++] = 0xFF;
                 buffer[index++] = 0x2F;
             } else {
                 // Other Keys
-                buffer[index++] = 0x2F;
-                buffer[index++] = 0x2F;
-                buffer[index++] = 0x1F;
+                buffer[index++] = 0x6F;
+                buffer[index++] = 0x6F;
+                buffer[index++] = 0x4F;
             }
         }
     }
@@ -122,9 +124,8 @@ void SetCustomColor(const int deviceId) {
     razer_attr_write_matrix_custom_frame(device.usbDevice, buffer, len);
 }
 
-int main() {
+int main(int argc, char ** argv) {
     initDevices();
-    SetCustomColor(550);
-//    SetModeSpectrum(550);
+    SetCustomColor(0x026b);
     return 0;
 }

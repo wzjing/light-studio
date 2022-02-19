@@ -1,5 +1,12 @@
 #include <stdlib.h>
+#include "log.hpp"
+#import <IOKit/serial/IOSerialKeys.h>
+#include <CoreFoundation/CoreFoundation.h>
 #include "../include/razerdevice.h"
+
+static IONotificationPortRef    gNotifyPort;
+static io_iterator_t            gAddedIter;
+static CFRunLoopRef             gRunLoop;
 
 bool is_razer_device(IOUSBDeviceInterface **dev)
 {
@@ -19,6 +26,7 @@ bool is_keyboard(IOUSBDeviceInterface **usb_dev)
 {
 	UInt16 product = -1;
 	(*usb_dev)->GetDeviceProduct(usb_dev, &product);
+	debug("prod = 0x%x", product);
 
 	switch (product)
 	{
@@ -49,6 +57,7 @@ bool is_keyboard(IOUSBDeviceInterface **usb_dev)
 	case USB_DEVICE_ID_RAZER_ORNATA_CHROMA_V2:
 	case USB_DEVICE_ID_RAZER_HUNTSMAN_ELITE:
 	case USB_DEVICE_ID_RAZER_HUNTSMAN_TE:
+	case USB_DEVICE_ID_RAZER_HUNTSMAN_TL:
 	case USB_DEVICE_ID_RAZER_BLACKWIDOW_ELITE:
 	case USB_DEVICE_ID_RAZER_HUNTSMAN:
 	case USB_DEVICE_ID_RAZER_CYNOSA_CHROMA:
@@ -359,42 +368,145 @@ void closeRazerUSBDeviceInterface(IOUSBDeviceInterface **dev)
 	kr = (*dev)->Release(dev);
 }
 
+void SignalHandler(int sigraised)
+{
+	fprintf(stderr, "\nInterrupted.\n");
+
+	exit(0);
+}
+
 RazerDevices getAllRazerDevices()
 {
+
+	CFMutableDictionaryRef  matchingDict;
+	CFRunLoopSourceRef      runLoopSource;
+	CFNumberRef             numberRef;
+	kern_return_t           kr;
+	long                    usbVendor = 0x1532;
+	long                    usbProduct = 0x026b;
+	sig_t                   oldHandler;
+
+	// Set up a signal handler so we can clean up when we're interrupted from the command line
+	// Otherwise we stay in our run loop forever.
+	oldHandler = signal(SIGINT, SignalHandler);
+	if (oldHandler == SIG_ERR) {
+		fprintf(stderr, "Could not establish new signal handler.");
+	}
+
+	printf("Looking for devices matching vendor ID=0x%lx and product ID=0x%lx.\n", usbVendor, usbProduct);
+
+	// Set up the matching criteria for the devices we're interested in. The matching criteria needs to follow
+	// the same rules as kernel drivers: mainly it needs to follow the USB Common Class Specification, pp. 6-7.
+	// See also Technical Q&A QA1076 "Tips on USB driver matching on Mac OS X"
+	// <http://developer.apple.com/qa/qa2001/qa1076.html>.
+	// One exception is that you can use the matching dictionary "as is", i.e. without adding any matching
+	// criteria to it and it will match every IOUSBDevice in the system. IOServiceAddMatchingNotification will
+	// consume this dictionary reference, so there is no need to release it later on.
+
+	matchingDict = IOServiceMatching(kIOUSBDeviceClassName);    // Interested in instances of class
+	// IOUSBDevice and its subclasses
+	if (matchingDict == NULL) {
+		fprintf(stderr, "IOServiceMatching returned NULL.\n");
+//		return NULL;
+	}
+
+	// We are interested in all USB devices (as opposed to USB interfaces).  The Common Class Specification
+	// tells us that we need to specify the idVendor, idProduct, and bcdDevice fields, or, if we're not interested
+	// in particular bcdDevices, just the idVendor and idProduct.  Note that if we were trying to match an
+	// IOUSBInterface, we would need to set more values in the matching dictionary (e.g. idVendor, idProduct,
+	// bInterfaceNumber and bConfigurationValue.
+
+	// Create a CFNumber for the idVendor and set the value in the dictionary
+	numberRef = CFNumberCreate(kCFAllocatorDefault, kCFNumberSInt32Type, &usbVendor);
+	CFDictionarySetValue(matchingDict,
+						 CFSTR(kUSBVendorID),
+						 numberRef);
+	CFRelease(numberRef);
+
+	// Create a CFNumber for the idProduct and set the value in the dictionary
+	numberRef = CFNumberCreate(kCFAllocatorDefault, kCFNumberSInt32Type, &usbProduct);
+	CFDictionarySetValue(matchingDict,
+						 CFSTR(kUSBProductID),
+						 numberRef);
+	CFRelease(numberRef);
+	numberRef = NULL;
+
+	// Create a notification port and add its run loop event source to our run loop
+	// This is how async notifications get set up.
+
+	gNotifyPort = IONotificationPortCreate(kIOMainPortDefault);
+	runLoopSource = IONotificationPortGetRunLoopSource(gNotifyPort);
+
+	gRunLoop = CFRunLoopGetCurrent();
+	CFRunLoopAddSource(gRunLoop, runLoopSource, kCFRunLoopDefaultMode);
+
+	// Now set up a notification to be called when a device is first matched by I/O Kit.
+	kr = IOServiceAddMatchingNotification(gNotifyPort,                  // notifyPort
+										  kIOFirstMatchNotification,    // notificationType
+										  matchingDict,                 // matching
+										  NULL,                  // callback
+										  NULL,                         // refCon
+										  &gAddedIter                   // notification
+	);
+
     RazerDevices allDevices = { .devices = NULL, .size = 0 };
 
-    CFMutableDictionaryRef matchingDict;
-    matchingDict = IOServiceMatching(kIOUSBDeviceClassName);
-    if (matchingDict == NULL)
-    {
-        return allDevices;
-    }
+	// unsigned int port;
+	// kern_return_t port_ret = IOMainPort(0, &port);
+	// debug("getAllRazerDevices :: ret = %d, port = 0x%04x", port_ret, port);
 
-    io_iterator_t iter;
-    kern_return_t kReturn =
-            IOServiceGetMatchingServices(kIOMasterPortDefault, matchingDict, &iter);
-    if (kReturn != kIOReturnSuccess)
-    {
-        return allDevices;
-    }
+//    CFMutableDictionaryRef matchingDict;
+//    matchingDict = IOServiceMatching(kIOUSBHostDeviceClassName);
+//    if (matchingDict == NULL)
+//    {
+//		error("getAllRazerDevice :: matchingDict == null");
+//        return allDevices;
+//    }
+//
+//    io_iterator_t iter;
+//	//kIOMasterPortDefault
+//    kern_return_t kReturn =
+//            IOServiceGetMatchingServices(kIOMainPortDefault, matchingDict, &iter);
+//    if (kReturn != kIOReturnSuccess)
+//    {
+//		error("getAllRazerDevice :: kReturn != kIOReturnSuccess");
+//        return allDevices;
+//    }
 
     int array_size = 0;
     int array_index = -1;
     RazerDevice *razerDevices = malloc(array_size * sizeof(RazerDevice));
 
     io_service_t usbDevice;
-    while ((usbDevice = IOIteratorNext(iter)))
+    while ((usbDevice = IOIteratorNext(gAddedIter)))
     {
+		io_name_t       deviceName;
+		CFStringRef     deviceNameAsCFString;
+		debug("loop : device = 0x%x", usbDevice);
+
+		// Get the USB device's name.
+		kr = IORegistryEntryGetName(usbDevice, deviceName);
+		if (KERN_SUCCESS != kr) {
+			deviceName[0] = '\0';
+		}
+
+		deviceNameAsCFString = CFStringCreateWithCString(kCFAllocatorDefault, deviceName,
+														 kCFStringEncodingASCII);
+
+		// Dump our data to stderr just to see what it looks like.
+		fprintf(stderr, "DeviceAdded :: deviceName: ");
+		CFShow(deviceNameAsCFString);
+
         IOCFPlugInInterface **plugInInterface = NULL;
         SInt32 score;
 
-        kReturn = IOCreatePlugInInterfaceForService(
+        kr = IOCreatePlugInInterfaceForService(
                 usbDevice, kIOUSBDeviceUserClientTypeID, kIOCFPlugInInterfaceID, &plugInInterface, &score);
 
         IOObjectRelease(usbDevice); // Not needed after plugin created
-        if ((kReturn != kIOReturnSuccess) || plugInInterface == NULL)
+        if ((kr != kIOReturnSuccess) || plugInInterface == NULL)
         {
-            // printf("Unable to create plugin (0x%08x)\n", kReturn);
+            warn("Unable to create plugin (0x%08x)", kr);
             continue;
         }
 
@@ -404,13 +516,14 @@ RazerDevices getAllRazerDevices()
         (*plugInInterface)->Release(plugInInterface); // Not needed after device interface created
         if (hResult || !dev)
         {
-            // printf("Couldn’t create a device interface (0x%08x)\n", (int) hResult);
+            warn("Couldn’t create a device interface (0x%08x)", (int) hResult);
             continue;
         }
 
         // Filter out non-Razer devices
         if (!is_razer_device(dev))
         {
+			warn("Not Razer Device");
             (*dev)->Release(dev);
             continue;
         }
@@ -425,14 +538,15 @@ RazerDevices getAllRazerDevices()
         && !is_egpu(dev)
         && !is_accessory(dev)
         ) {
+			warn("unknown device");
             (*dev)->Release(dev);
             continue;
         }
 
-        kReturn = (*dev)->USBDeviceOpen(dev);
-        if (kReturn != kIOReturnSuccess)
+        kr = (*dev)->USBDeviceOpen(dev);
+        if (kr != kIOReturnSuccess)
         {
-            printf("Unable to open USB device: %08x\n", kReturn);
+            printf("Unable to open USB device: %08x\n", kr);
             (*dev)->Release(dev);
             continue;
         }
@@ -448,11 +562,13 @@ RazerDevices getAllRazerDevices()
 
         RazerDevice newDevice = { .usbDevice = dev, .internalDeviceId = array_index, .productId = productId };
         razerDevices[array_index] = newDevice;
+		debug("loop : device added");
     }
 
-    IOObjectRelease(iter);
+    IOObjectRelease(gAddedIter);
     allDevices.devices = razerDevices;
     allDevices.size = array_size;
+	debug("done.");
     return allDevices;
 }
 

@@ -54,7 +54,7 @@ IOReturn razer_get_usb_response(IOUSBDeviceInterface **dev, uint report_index, s
     retval = razer_send_control_msg(dev, request_report, report_index);
     
     if(retval != kIOReturnSuccess) {
-        printf("razer_send_control_msg failed!\n");
+        printf("razer_send_control_msg failed, ret = 0x%x\n", retval);
         
         return retval;
     }
