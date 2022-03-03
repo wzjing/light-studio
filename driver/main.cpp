@@ -6,9 +6,11 @@ extern "C"
 #include "razermousedock_driver.h"
 #include "razermousemat_driver.h"
 #include "razerheadphone_driver.h"
+#include <unistd.h>
+#include <getopt.h>
 }
 
-#include <log.hpp>
+#include <log.h>
 
 RazerDevices devices;
 
@@ -49,7 +51,7 @@ void SetModeCustom(const int deviceId) {
 void SetModeReactive(const int deviceId) {
     auto device = getRazerDeviceFor(deviceId);
     if ((*device.usbDevice) == nullptr) {
-        debug("SetModeReactive :: error, getRazerDevice failed, deviceId = %d\n", device.productId);
+        debug("SetModeReactive :: error, getRazerDevice failed, deviceId = %d", device.productId);
     }
     razer_attr_write_mode_reactive(device.usbDevice, "1fff", 4);
 }
@@ -82,7 +84,7 @@ void SetCustomColor(const int deviceId) {
                 buffer[index++] = 0x0F;
                 buffer[index++] = 0xFF;
                 buffer[index++] = 0x0F;
-            } else if(i == 1 && j >= 1 && j <= 10) {
+            } else if (i == 1 && j >= 1 && j <= 10) {
                 // Numbers
                 buffer[index++] = 0xFF;
                 buffer[index++] = 0xFF;
@@ -97,17 +99,17 @@ void SetCustomColor(const int deviceId) {
                 buffer[index++] = 0xFF;
                 buffer[index++] = 0x1F;
                 buffer[index++] = 0x1F;
-            } else if((i == 1 && j == 13) || (i == 2 && j == 14)) {
+            } else if ((i == 1 && j == 13) || (i == 2 && j == 14)) {
                 // Delete and Backspace
                 buffer[index++] = 0xFF;
                 buffer[index++] = 0x00;
                 buffer[index++] = 0x00;
-            } else if(i == 3 && j == 13) {
+            } else if (i == 3 && j == 13) {
                 // Enter
                 buffer[index++] = 0x00;
                 buffer[index++] = 0xFF;
                 buffer[index++] = 0x0F;
-            } else if(i == 5 && j == 1) {
+            } else if (i == 5 && j == 1) {
                 // Windows
                 buffer[index++] = 0x00;
                 buffer[index++] = 0xFF;
@@ -124,8 +126,76 @@ void SetCustomColor(const int deviceId) {
     razer_attr_write_matrix_custom_frame(device.usbDevice, buffer, len);
 }
 
-int main(int argc, char ** argv) {
-    initDevices();
-    SetCustomColor(0x026b);
+void help() {
+
+}
+
+static int verbose_flag;
+
+int main(int argc, char **argv) {
+
+    info("execute");
+
+    int c;
+
+    while (true) {
+        struct option options[] = {
+                {"list",    no_argument,       0, 'l'},
+                {"profile", required_argument, 0, 'p'},
+                {"device",  required_argument, 0, 'd'},
+                {0, 0, 0, 0}
+        };
+
+        int options_index = 0;
+        c = getopt_long(argc, argv, "lp:d:", options, &options_index);
+        if (c == -1) {
+            info("break");
+            break;
+        }
+
+        info("while :: %c", c);
+
+        switch (c) {
+            case 0:
+                if (options[options_index].flag != 0) {
+                    break;
+                }
+                if (optarg) {
+                    info("args = %s", optarg);
+                }
+                break;
+            case 'l':
+                info("list devices");
+                break;
+            case 'p':
+                info("set profile %s", optarg);
+                break;
+            case 'd':
+                info("select device %s", optarg);
+                break;
+            default:
+                help();
+                abort();
+        }
+
+    }
+
+    if (verbose_flag)
+        puts ("verbose flag is set");
+
+    /* Print any remaining command line arguments (not options). */
+    if (optind < argc)
+    {
+        printf ("non-option ARGV-elements: ");
+        while (optind < argc)
+            printf ("%s ", argv[optind++]);
+        putchar ('\n');
+    }
+
+    exit (0);
+
+
+//    initDevices();
+//    SetCustomColor(0x026b);
     return 0;
 }

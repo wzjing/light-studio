@@ -25,7 +25,7 @@
 #include "../include/razerkbd_driver.h"
 #include "../include/razerchromacommon.h"
 #include "../include/razercommon.h"
-#include "log.hpp"
+#include "log.h"
 
 static struct razer_report razer_send_payload(IOUSBDeviceInterface **dev, struct razer_report *request_report);
 

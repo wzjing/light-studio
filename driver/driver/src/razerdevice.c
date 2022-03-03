@@ -1,5 +1,5 @@
 #include <stdlib.h>
-#include "log.hpp"
+#include "log.h"
 #import <IOKit/serial/IOSerialKeys.h>
 #include <CoreFoundation/CoreFoundation.h>
 #include "../include/razerdevice.h"
@@ -235,7 +235,7 @@ IOUSBDeviceInterface **getRazerUSBDeviceInterface(int type)
 
 	io_iterator_t iter;
 	kern_return_t kReturn =
-		IOServiceGetMatchingServices(kIOMasterPortDefault, matchingDict, &iter);
+		IOServiceGetMatchingServices(kIOMainPortDefault, matchingDict, &iter);
 	if (kReturn != kIOReturnSuccess)
 	{
 		return NULL;
